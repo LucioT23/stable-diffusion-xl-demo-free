@@ -47,15 +47,27 @@ pipe = DiffusionPipeline.from_pretrained(model_key_base, torch_dtype=torch.float
 
 multi_gpu = os.getenv("MULTI_GPU", "false").lower() == "true"
 
+# disables safety checks
+def disabled_safety_checker(images, clip_input):
+    if len(images.shape)==4:
+        num_images = images.shape[0]
+        return images, [False]*num_images
+    else:
+        return images, False
+
+
 if multi_gpu:
     pipe.unet = UNetDataParallel(pipe.unet)
     pipe.unet.config, pipe.unet.dtype, pipe.unet.add_embedding = pipe.unet.module.config, pipe.unet.module.dtype, pipe.unet.module.add_embedding
     pipe.to("cuda")
+    pipe.safety_checker = disabled_safety_checker
 else:
     if offload_base:
         pipe.enable_model_cpu_offload()
+        pipe.safety_checker = disabled_safety_checker
     else:
         pipe.to("cuda")
+        pipe.safety_checker = disabled_safety_checker
 
 # if using torch < 2.0
 # pipe.enable_xformers_memory_efficient_attention()
